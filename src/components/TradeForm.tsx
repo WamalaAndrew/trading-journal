@@ -82,7 +82,16 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData as Omit<Trade, 'id'>);
+    
+    const submissionData = { ...formData };
+    
+    // Remove optional fields if they are empty strings so Firestore rules (which expect numbers or specific strings) aren't violated
+    if (submissionData.exitReason === '') delete submissionData.exitReason;
+    if (submissionData.exitPrice === '') delete submissionData.exitPrice;
+    if (submissionData.resultPips === '') delete submissionData.resultPips;
+    if (submissionData.notes === '') delete submissionData.notes;
+    
+    onSubmit(submissionData as Omit<Trade, 'id'>);
     onCancel();
   };
 
