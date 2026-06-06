@@ -107,8 +107,12 @@ export default function App() {
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
         <div className="max-w-5xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shadow-[0_0_15px_-4px_rgba(79,70,229,0.6)]">
-              <Activity className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center overflow-hidden">
+              <img src="/logo.jpg" alt="AlphaLog" className="w-full h-full object-cover" onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.parentElement?.classList.add('bg-indigo-600', 'shadow-[0_0_15px_-4px_rgba(79,70,229,0.6)]');
+                e.currentTarget.parentElement!.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity text-white"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+              }} />
             </div>
             <h1 className="text-xl font-mono font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">AlphaLog</h1>
           </div>
@@ -157,7 +161,13 @@ export default function App() {
            </div>
         ) : !user ? (
            <div className="text-center py-20 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-             <Activity className="w-12 h-12 text-indigo-500 mx-auto mb-4" />
+             <div className="w-16 h-16 mx-auto mb-4 rounded-xl flex items-center justify-center overflow-hidden">
+                <img src="/logo.jpg" alt="AlphaLog" className="w-full h-full object-cover" onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  e.currentTarget.parentElement?.classList.add('bg-indigo-600', 'shadow-[0_0_15px_-4px_rgba(79,70,229,0.6)]');
+                  e.currentTarget.parentElement!.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-activity text-white"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>';
+                }} />
+             </div>
              <h2 className="text-xl font-medium text-zinc-900 dark:text-zinc-100 mb-2">Welcome to AlphaLog</h2>
              <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm mx-auto">Sign in to start tracking your trading performance and journal entries securely.</p>
              <button 
