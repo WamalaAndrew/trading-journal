@@ -5,15 +5,17 @@ import { X, Plus, Save, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface TradeFormProps {
+  initialData?: Trade;
   onSubmit: (trade: Omit<Trade, 'id'>) => Promise<void> | void;
   onCancel: () => void;
 }
 
 export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News'];
 
-export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
+export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<Trade>>(() => {
+    if (initialData) return { ...initialData };
     const saved = localStorage.getItem('tradeFormDraft');
     if (saved) {
       try {
@@ -32,8 +34,10 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
   });
 
   useEffect(() => {
-    localStorage.setItem('tradeFormDraft', JSON.stringify(formData));
-  }, [formData]);
+    if (!initialData) {
+      localStorage.setItem('tradeFormDraft', JSON.stringify(formData));
+    }
+  }, [formData, initialData]);
 
   const toggleStrategy = (tag: string) => {
     setFormData(prev => {
@@ -73,7 +77,7 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
     try {
       await onSubmit(submissionData as Omit<Trade, 'id'>);
       localStorage.removeItem('tradeFormDraft');
-      toast.success('Trade logged successfully!');
+      toast.success(initialData ? 'Trade updated successfully!' : 'Trade logged successfully!');
       onCancel();
     } catch (error) {
       console.error(error);
@@ -88,8 +92,8 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl w-full max-w-3xl my-8 relative flex flex-col max-h-[90vh]">
         <div className="sticky top-0 z-10 flex items-center justify-between p-6 border-b border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md rounded-t-2xl">
           <div>
-            <h2 className="text-xl font-mono text-zinc-900 dark:text-zinc-100 mb-1">New Entry</h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">Log a new trade setup</p>
+            <h2 className="text-xl font-mono text-zinc-900 dark:text-zinc-100 mb-1">{initialData ? 'Edit Entry' : 'New Entry'}</h2>
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{initialData ? 'Update an existing trade' : 'Log a new trade setup'}</p>
           </div>
           <button 
             type="button" 

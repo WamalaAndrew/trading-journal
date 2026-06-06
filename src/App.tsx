@@ -15,8 +15,9 @@ import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Toaster } from 'react-hot-toast';
 
 export default function App() {
-  const { trades, addTrade, deleteTrade } = useTrades();
+  const { trades, addTrade, updateTrade, deleteTrade } = useTrades();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editTrade, setEditTrade] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   const [user, setUser] = useState<any>(null);
@@ -136,7 +137,10 @@ export default function App() {
                   <LogOut className="w-5 h-5" />
                 </button>
                 <button 
-                  onClick={() => setIsFormOpen(true)}
+                  onClick={() => {
+                    setEditTrade(null);
+                    setIsFormOpen(true);
+                  }}
                   className="flex items-center gap-2 px-4 py-2 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 rounded-full font-medium hover:bg-zinc-800 dark:hover:bg-white transition-colors"
                 >
                   <Plus className="w-4 h-4" />
@@ -327,7 +331,10 @@ export default function App() {
               <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm mx-auto">Adjust your filters or start tracking new entries to populate your journal.</p>
               {trades.length === 0 && (
                 <button 
-                  onClick={() => setIsFormOpen(true)}
+                  onClick={() => {
+                    setEditTrade(null);
+                    setIsFormOpen(true);
+                  }}
                   className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
                 >
                   <Plus className="w-4 h-4" />
@@ -341,7 +348,10 @@ export default function App() {
                 <TradeCard 
                   key={trade.id} 
                   trade={trade} 
-                  onEdit={() => {}} // Placeholder for future
+                  onEdit={() => {
+                    setEditTrade(trade);
+                    setIsFormOpen(true);
+                  }}
                   onDelete={deleteTrade}
                 />
               ))}
@@ -353,8 +363,15 @@ export default function App() {
       </main>
 
       {isFormOpen && user && (
-        <TradeForm 
-          onSubmit={addTrade} 
+        <TradeForm
+          initialData={editTrade}
+          onSubmit={async (tradeData) => {
+            if (editTrade) {
+              await updateTrade(editTrade.id, tradeData);
+            } else {
+              await addTrade(tradeData);
+            }
+          }} 
           onCancel={() => setIsFormOpen(false)} 
         />
       )}

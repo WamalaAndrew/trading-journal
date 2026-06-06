@@ -62,16 +62,22 @@ export function useTrades() {
     }
   };
 
+  const updateTrade = async (id: string, tradeUpdates: Partial<Omit<Trade, 'id' | 'userId' | 'createdAt'>>) => {
+    if (!auth.currentUser) throw new Error("User must be logged in to update a trade");
+    const tradeRef = doc(db, 'trades', id);
+    
+    try {
+      await updateDoc(tradeRef, tradeUpdates);
+    } catch (e) {
+      console.error("Error updating trade: ", e);
+      throw e;
+    }
+  };
+
   const deleteTrade = async (id: string) => {
     if (!auth.currentUser) return;
     const tradeRef = doc(db, 'trades', id);
     await deleteDoc(tradeRef);
-  };
-
-  const updateTrade = async (id: string, updates: Partial<Trade>) => {
-    if (!auth.currentUser) return;
-    const tradeRef = doc(db, 'trades', id);
-    await updateDoc(tradeRef, updates);
   };
 
   return { trades, addTrade, deleteTrade, updateTrade };

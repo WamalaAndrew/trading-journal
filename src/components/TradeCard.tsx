@@ -4,7 +4,7 @@ import { Activity, Percent, Crosshair, TrendingUp, AlertCircle, X, Check } from 
 
 interface TradeCardProps {
   trade: Trade;
-  onEdit: (id: string) => void;
+  onEdit: () => void;
   onDelete: (id: string) => void;
 }
 
@@ -141,7 +141,13 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
             </button>
           </div>
         ) : (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-4">
+            <button 
+              onClick={() => onEdit()} 
+              className="text-xs font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+            >
+              Edit Entry
+            </button>
             <button 
               onClick={() => setShowDeleteConfirm(true)} 
               className="text-xs font-medium text-zinc-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
