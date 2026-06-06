@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trade, MACDDirection, CrossoverType, ExitReason, ResultStatus } from '../types';
+import { calculateTradeFields } from '../utils/tradeCalculations';
 import { X, Plus, Save, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -53,47 +54,7 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
       parsedValue = value === '' ? '' : Number(value);
     }
     
-    setFormData(prev => {
-      const next = { ...prev, [name]: parsedValue };
-      
-      const entry = Number(next.entryPrice);
-      const tpp = Number(next.takeProfitPrice);
-      const slp = Number(next.stopLossPrice);
-      const ep = Number(next.exitPrice);
-      const pair = next.pair || '';
-      
-      if (!isNaN(entry) && entry > 0) {
-        const mult = pair.toUpperCase().includes('JPY') ? 100 : 10000;
-        const isLong = !isNaN(tpp) && tpp > 0 ? tpp > entry : (!isNaN(slp) && slp > 0 ? slp < entry : true);
-
-        if (!isNaN(slp) && slp > 0 && name !== 'stopLossPips') {
-           next.stopLossPips = Number((Math.abs(entry - slp) * mult).toFixed(1));
-        } else if (name === 'stopLossPips' && next.stopLossPips > 0) {
-           // If user manually types SL pips, maybe don't overwrite if they want manual control. 
-        }
-
-        if (!isNaN(tpp) && tpp > 0 && !isNaN(slp) && slp > 0 && name !== 'takeProfitRR') {
-           const slDistance = Math.abs(entry - slp);
-           const tpDistance = Math.abs(tpp - entry);
-           if (slDistance > 0) {
-              next.takeProfitRR = Number((tpDistance / slDistance).toFixed(2));
-           }
-        }
-
-        if (!isNaN(ep) && ep > 0 && name !== 'resultPips') {
-           const profit = isLong ? ep - entry : entry - ep;
-           next.resultPips = Number((profit * mult).toFixed(1));
-           
-           if (!prev.resultStatus || prev.resultStatus === 'Open/Pending') {
-             if (profit > 0) next.resultStatus = 'Win';
-             else if (profit < 0) next.resultStatus = 'Loss';
-             else next.resultStatus = 'Breakeven';
-           }
-        }
-      }
-      
-      return next;
-    });
+    setFormData(prev => calculateTradeFields(name, parsedValue, prev));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -314,6 +275,35 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
 
         <div className="sticky bottom-0 z-10 flex items-center justify-end border-t border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md p-6 rounded-b-2xl">
           <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button 
+              type="button" 
+              onClick={() => {
+                setFormData({
+                  dateTime: new Date().toISOString().slice(0, 16),
+                  pair: 'EURUSD',
+                  timeframe: '1H',
+                  macd4hDirection: 'Bullish',
+                  macd1hCrossover: 'Above zero',
+                  rsiAtEntry: 45,
+                  entryPrice: 1.1000,
+                  stopLossPrice: 1.0950,
+                  stopLossPips: 50,
+                  takeProfitPrice: 1.1100,
+                  takeProfitRR: 2,
+                  resultStatus: 'Win',
+                  exitPrice: 1.1100,
+                  exitReason: 'Hit TP',
+                  resultPips: 100,
+                  didWell: 'Followed strategy perfectly and waited for TP.',
+                  wouldChange: 'Nothing, great setup.',
+                  strategyTags: ['Trend Following'],
+                  notes: 'Testing demo data save functionality.'
+                });
+              }}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors font-medium"
+            >
+              Fill Demo Data
+            </button>
             <button 
               type="button" 
               onClick={onCancel}
