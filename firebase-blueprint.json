@@ -1,0 +1,42 @@
+{
+  "entities": {
+    "Trade": {
+      "title": "Trade",
+      "description": "A trading record for the journal",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "dateTime": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string" },
+        "pair": { "type": "string" },
+        "timeframe": { "type": "string" },
+        "macd4hDirection": { "type": "string", "enum": ["Bullish", "Bearish", "Mixed"] },
+        "macd1hCrossover": { "type": "string", "enum": ["Above zero", "Below zero"] },
+        "rsiAtEntry": { "type": "number" },
+        "entryPrice": { "type": "number" },
+        "stopLossPrice": { "type": "number" },
+        "stopLossPips": { "type": "number" },
+        "takeProfitPrice": { "type": "number" },
+        "takeProfitRR": { "type": "number" },
+        "exitPrice": { "type": "number" },
+        "exitReason": { "type": "string", "enum": ["Hit TP", "Hit SL", "MACD cross", "RSI", "Manual", "Other"] },
+        "resultStatus": { "type": "string", "enum": ["Win", "Loss", "Breakeven", "Open/Pending"] },
+        "resultPips": { "type": "number" },
+        "didWell": { "type": "string" },
+        "wouldChange": { "type": "string" },
+        "notes": { "type": "string" },
+        "strategyTags": { 
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["userId", "dateTime", "createdAt", "pair", "timeframe", "macd4hDirection", "macd1hCrossover", "rsiAtEntry", "entryPrice", "stopLossPrice", "stopLossPips", "takeProfitPrice", "takeProfitRR", "resultStatus", "didWell", "wouldChange"]
+    }
+  },
+  "firestore": {
+    "/trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/Trade" },
+      "description": "Trading journal entries"
+    }
+  }
+}
