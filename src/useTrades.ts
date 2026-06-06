@@ -7,25 +7,42 @@ export function useTrades() {
   const [trades, setTrades] = useState<Trade[]>([]);
 
   useEffect(() => {
-    if (!auth.currentUser) return;
-    
-    const q = query(
-      collection(db, 'trades'),
-      where('userId', '==', auth.currentUser.uid),
-      orderBy('createdAt', 'desc')
-    );
+    let unsubscribeSnapshot: () => void = () => {};
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const tradesData: Trade[] = [];
-      snapshot.forEach((doc) => {
-        tradesData.push({ id: doc.id, ...doc.data() } as Trade);
-      });
-      setTrades(tradesData);
-    }, (error) => {
-      console.error("Firestore onSnapshot Error:", error);
+    const unsubscribeAuth = auth.onAuthStateChanged(user => {
+      if (user) {
+        const q = query(
+          collection(db, 'trades'),
+          where('userId', '==', user.uid)
+        );
+
+        unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+          const tradesData: Trade[] = [];
+          snapshot.forEach((doc) => {
+            tradesData.push({ id: doc.id, ...doc.data() } as Trade);
+          });
+          
+          // Sort by dateTime or createdAt descending since we removed orderBy to avoid index requirement
+          tradesData.sort((a, b) => {
+            const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+            const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+            return dateB - dateA;
+          });
+          
+          setTrades(tradesData);
+        }, (error) => {
+          console.error("Firestore onSnapshot Error:", error);
+        });
+      } else {
+        setTrades([]);
+        unsubscribeSnapshot();
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      unsubscribeSnapshot();
+    };
   }, []);
 
   const addTrade = async (trade: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => {
