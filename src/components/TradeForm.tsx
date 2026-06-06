@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Trade, MACDDirection, CrossoverType, ExitReason, ResultStatus } from '../types';
 import { X, Plus, Save } from 'lucide-react';
 
@@ -10,13 +10,27 @@ interface TradeFormProps {
 export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News'];
 
 export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
-  const [formData, setFormData] = useState<Partial<Trade>>({
-    dateTime: new Date().toISOString().slice(0, 16),
-    resultStatus: 'Open/Pending',
-    macd4hDirection: 'Mixed',
-    macd1hCrossover: 'Above zero',
-    strategyTags: []
+  const [formData, setFormData] = useState<Partial<Trade>>(() => {
+    const saved = localStorage.getItem('tradeFormDraft');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // Log parse error if needed, fallback to default
+      }
+    }
+    return {
+      dateTime: new Date().toISOString().slice(0, 16),
+      resultStatus: 'Open/Pending',
+      macd4hDirection: 'Mixed',
+      macd1hCrossover: 'Above zero',
+      strategyTags: []
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('tradeFormDraft', JSON.stringify(formData));
+  }, [formData]);
 
   const toggleStrategy = (tag: string) => {
     setFormData(prev => {
@@ -91,6 +105,7 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
     if (submissionData.resultPips === '') delete submissionData.resultPips;
     if (submissionData.notes === '') delete submissionData.notes;
     
+    localStorage.removeItem('tradeFormDraft');
     onSubmit(submissionData as Omit<Trade, 'id'>);
     onCancel();
   };

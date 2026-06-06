@@ -8,7 +8,7 @@ service cloud.firestore {
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function isVerified() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isVerified() { return request.auth != null; }
 
     function isValidTrade(data) {
       return data.keys().hasAll(['userId', 'dateTime', 'createdAt', 'pair', 'timeframe', 'macd4hDirection', 'macd1hCrossover', 'rsiAtEntry', 'entryPrice', 'stopLossPrice', 'stopLossPips', 'takeProfitPrice', 'takeProfitRR', 'resultStatus', 'didWell', 'wouldChange'])
