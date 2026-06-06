@@ -29,15 +29,20 @@ export function useTrades() {
   }, []);
 
   const addTrade = async (trade: Omit<Trade, 'id' | 'userId' | 'createdAt'>) => {
-    if (!auth.currentUser) return;
+    if (!auth.currentUser) throw new Error("User must be logged in to add a trade");
     const newTradeId = crypto.randomUUID();
     const tradeRef = doc(db, 'trades', newTradeId);
     
-    await setDoc(tradeRef, {
-      ...trade,
-      userId: auth.currentUser.uid,
-      createdAt: serverTimestamp()
-    });
+    try {
+      await setDoc(tradeRef, {
+        ...trade,
+        userId: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error("Error creating trade: ", e);
+      throw e;
+    }
   };
 
   const deleteTrade = async (id: string) => {

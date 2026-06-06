@@ -11,27 +11,26 @@ service cloud.firestore {
     function isVerified() { return request.auth != null; }
 
     function isValidTrade(data) {
-      return data.keys().hasAll(['userId', 'dateTime', 'createdAt', 'pair', 'timeframe', 'macd4hDirection', 'macd1hCrossover', 'rsiAtEntry', 'entryPrice', 'stopLossPrice', 'stopLossPips', 'takeProfitPrice', 'takeProfitRR', 'resultStatus', 'didWell', 'wouldChange'])
-        && data.userId == request.auth.uid
-        && data.dateTime is string && data.dateTime.size() <= 64
-        && data.pair is string && data.pair.size() <= 20
-        && data.timeframe is string && data.timeframe.size() <= 20
-        && (data.macd4hDirection in ['Bullish', 'Bearish', 'Mixed'])
-        && (data.macd1hCrossover in ['Above zero', 'Below zero'])
-        && data.rsiAtEntry is number
-        && data.entryPrice is number
-        && data.stopLossPrice is number
-        && data.stopLossPips is number
-        && data.takeProfitPrice is number
-        && data.takeProfitRR is number
-        && (data.resultStatus in ['Win', 'Loss', 'Breakeven', 'Open/Pending'])
-        && data.didWell is string && data.didWell.size() <= 2000
-        && data.wouldChange is string && data.wouldChange.size() <= 2000
-        && (!data.keys().hasAny(['exitPrice']) || data.exitPrice is number)
-        && (!data.keys().hasAny(['exitReason']) || data.exitReason in ['Hit TP', 'Hit SL', 'MACD cross', 'RSI', 'Manual', 'Other'])
-        && (!data.keys().hasAny(['resultPips']) || data.resultPips is number)
-        && (!data.keys().hasAny(['notes']) || (data.notes is string && data.notes.size() <= 5000))
-        && (!data.keys().hasAny(['strategyTags']) || (data.strategyTags is list && data.strategyTags.size() <= 10 && (data.strategyTags.size() == 0 || data.strategyTags[0] is string)));
+      return data.userId == request.auth.uid
+        && data.dateTime is string
+        && data.pair is string
+        && data.timeframe is string
+        && (!data.keys().hasAny(['macd4hDirection']) || data.macd4hDirection is string)
+        && (!data.keys().hasAny(['macd1hCrossover']) || data.macd1hCrossover is string)
+        && (!data.keys().hasAny(['rsiAtEntry']) || data.rsiAtEntry is number || data.rsiAtEntry is string)
+        && (!data.keys().hasAny(['entryPrice']) || data.entryPrice is number || data.entryPrice is string)
+        && (!data.keys().hasAny(['stopLossPrice']) || data.stopLossPrice is number || data.stopLossPrice is string)
+        && (!data.keys().hasAny(['stopLossPips']) || data.stopLossPips is number || data.stopLossPips is string)
+        && (!data.keys().hasAny(['takeProfitPrice']) || data.takeProfitPrice is number || data.takeProfitPrice is string)
+        && (!data.keys().hasAny(['takeProfitRR']) || data.takeProfitRR is number || data.takeProfitRR is string)
+        && (!data.keys().hasAny(['resultStatus']) || data.resultStatus is string)
+        && (!data.keys().hasAny(['didWell']) || data.didWell is string)
+        && (!data.keys().hasAny(['wouldChange']) || data.wouldChange is string)
+        && (!data.keys().hasAny(['exitPrice']) || data.exitPrice is number || data.exitPrice is string)
+        && (!data.keys().hasAny(['exitReason']) || data.exitReason is string)
+        && (!data.keys().hasAny(['resultPips']) || data.resultPips is number || data.resultPips is string)
+        && (!data.keys().hasAny(['notes']) || data.notes is string)
+        && (!data.keys().hasAny(['strategyTags']) || data.strategyTags is list);
     }
 
     match /trades/{tradeId} {

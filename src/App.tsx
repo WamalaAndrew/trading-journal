@@ -12,6 +12,7 @@ import { exportToCSV } from './exportUtils';
 import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut } from 'lucide-react';
 import { auth } from './firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Toaster } from 'react-hot-toast';
 
 export default function App() {
   const { trades, addTrade, deleteTrade } = useTrades();
@@ -103,6 +104,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 transition-colors duration-200">
+      <Toaster position="bottom-right" />
       {/* Header */}
       <header className="sticky top-0 z-30 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-200 dark:border-zinc-800 transition-colors duration-200">
         <div className="max-w-5xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">

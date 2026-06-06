@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Trade, MACDDirection, CrossoverType, ExitReason, ResultStatus } from '../types';
-import { X, Plus, Save } from 'lucide-react';
+import { X, Plus, Save, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface TradeFormProps {
-  onSubmit: (trade: Omit<Trade, 'id'>) => void;
+  onSubmit: (trade: Omit<Trade, 'id'>) => Promise<void> | void;
   onCancel: () => void;
 }
 
 export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News'];
 
 export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<Trade>>(() => {
     const saved = localStorage.getItem('tradeFormDraft');
     if (saved) {
@@ -94,9 +96,11 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     
+    setIsSubmitting(true);
     const submissionData = { ...formData };
     
     // Remove optional fields if they are empty strings so Firestore rules (which expect numbers or specific strings) aren't violated
@@ -105,9 +109,17 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
     if (submissionData.resultPips === '') delete submissionData.resultPips;
     if (submissionData.notes === '') delete submissionData.notes;
     
-    localStorage.removeItem('tradeFormDraft');
-    onSubmit(submissionData as Omit<Trade, 'id'>);
-    onCancel();
+    try {
+      await onSubmit(submissionData as Omit<Trade, 'id'>);
+      localStorage.removeItem('tradeFormDraft');
+      toast.success('Trade logged successfully!');
+      onCancel();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to save trade. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -312,10 +324,15 @@ export function TradeForm({ onSubmit, onCancel }: TradeFormProps) {
             <button 
               type="submit" 
               form="trade-form"
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium shadow-[0_0_20px_-5px_rgba(79,70,229,0.5)]"
+              disabled={isSubmitting}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors font-medium shadow-[0_0_20px_-5px_rgba(79,70,229,0.5)] disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              <Save className="w-4 h-4" />
-              Save Record
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {isSubmitting ? 'Saving...' : 'Save Record'}
             </button>
           </div>
         </div>
