@@ -1,5 +1,5 @@
 {
-  "name": "Trading Journal",
+  "name": "AlphaLog",
   "description": "A professional trading journal to track trades, MACD crossovers, RSI, and performance metrics.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
