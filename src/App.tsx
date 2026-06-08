@@ -8,8 +8,10 @@ import { useTrades } from './useTrades';
 import { TradeForm, STRATEGY_OPTIONS } from './components/TradeForm';
 import { TradeCard } from './components/TradeCard';
 import { PerformanceChart } from './components/PerformanceChart';
+import { StrategyPerformance } from './components/StrategyPerformance';
 import { exportToCSV } from './exportUtils';
-import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut } from 'lucide-react';
+import { ImportWizard } from './components/ImportWizard';
+import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload } from 'lucide-react';
 import { auth } from './firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Toaster } from 'react-hot-toast';
@@ -17,6 +19,7 @@ import { Toaster } from 'react-hot-toast';
 export default function App() {
   const { trades, addTrade, updateTrade, deleteTrade } = useTrades();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [editTrade, setEditTrade] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
@@ -82,11 +85,37 @@ export default function App() {
   const mWinRate = mTotalTrades > 0 ? Math.round((mWins / mTotalTrades) * 100) : 0;
   const mTotalPips = monthlyTrades.reduce((acc, t) => acc + (Number(t.resultPips) || 0), 0);
 
+  const formatPips = (pips: number) => {
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(pips);
+  };
+
   // Overall Quick stats
   const totalTrades = trades.length;
   const wins = trades.filter(t => t.resultStatus === 'Win').length;
   const winRate = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
   const totalPips = trades.reduce((acc, t) => acc + (Number(t.resultPips) || 0), 0);
+
+  // Streak Calculation
+  let currentStreakType: 'Win' | 'Loss' | 'None' = 'None';
+  let currentStreakCount = 0;
+  
+  const closedTrades = trades.filter(t => t.resultStatus !== 'Open/Pending');
+  if (closedTrades.length > 0) {
+    const mostRecentStatus = closedTrades[0].resultStatus;
+    if (mostRecentStatus === 'Win') {
+      currentStreakType = 'Win';
+      for (const t of closedTrades) {
+        if (t.resultStatus === 'Win') currentStreakCount++;
+        else break;
+      }
+    } else if (mostRecentStatus === 'Loss') {
+      currentStreakType = 'Loss';
+      for (const t of closedTrades) {
+        if (t.resultStatus === 'Loss') currentStreakCount++;
+        else break;
+      }
+    }
+  }
 
   // Filtered Trades
   const filteredTrades = trades.filter(t => {
@@ -187,48 +216,60 @@ export default function App() {
         ) : (
           <>
             {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          {/* Overall Stats */}
-          <div className="grid grid-cols-2 gap-4">
-             <div className="col-span-2 mb-1">
-               <h2 className="text-sm font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase">Overall Performance</h2>
-             </div>
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Win Rate & Trades</p>
-              <p className="text-3xl font-mono text-indigo-600 dark:text-indigo-400 mb-1">{winRate}%</p>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">{totalTrades} logged</p>
-            </div>
-             <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Total Pips</p>
-               <p className={`text-3xl font-mono mb-1 ${totalPips >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalPips >= 0 ? '+' : ''}{totalPips}
-              </p>
-              <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium pb-[1px]">net profit/loss</p>
-            </div>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+           <div className="col-span-2 lg:col-span-5 mb-1 mt-2">
+             <h2 className="text-sm font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase">Performance Snapshot</h2>
+           </div>
+          
+           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Win Rate</p>
+             <p className="text-3xl font-mono text-zinc-900 dark:text-zinc-100 mb-1">{winRate}%</p>
+             <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">{totalTrades} trades logged</p>
+           </div>
+           
+           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+             <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Net Pips</p>
+             <p className={`text-3xl font-mono mb-1 ${totalPips >= 0 ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+              {totalPips >= 0 && totalPips !== 0 ? '+' : ''}{formatPips(totalPips)}
+             </p>
+             <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium pb-[1px]">overall profit/loss</p>
+           </div>
 
-          {/* Monthly Stats */}
-          <div className="grid grid-cols-2 gap-4">
-             <div className="col-span-2 mb-1">
-               <h2 className="text-sm font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase">{currentMonthDate.toLocaleString('default', { month: 'long' })} Performance</h2>
+           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm col-span-2 lg:col-span-1 flex flex-col justify-center relative overflow-hidden">
+             <div className="relative z-10">
+               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Active Streak</p>
+               <p className={`text-3xl font-mono mb-1 ${currentStreakType === 'Win' ? 'text-emerald-500 dark:text-emerald-400' : currentStreakType === 'Loss' ? 'text-red-500 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                 {currentStreakType !== 'None' ? `${currentStreakCount} ${currentStreakType}s` : 'None'}
+               </p>
+               <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium pb-[1px]">consecutive outcomes</p>
              </div>
-            <div className="bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-5 shadow-sm">
-              <p className="text-sm text-emerald-700 dark:text-emerald-500/80 mb-1">Monthly Win Rate</p>
-              <p className="text-3xl font-mono text-emerald-600 dark:text-emerald-400 mb-1">{mWinRate}%</p>
-              <p className="text-xs text-emerald-600/70 dark:text-emerald-500/60 font-medium">{mTotalTrades} trades</p>
-            </div>
-            <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
-              <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-1">Monthly Pips</p>
-               <p className={`text-3xl font-mono mb-1 ${mTotalPips >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`}>
-                {mTotalPips >= 0 ? '+' : ''}{mTotalPips}
-              </p>
-              <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium">net this month</p>
-            </div>
-          </div>
+             {currentStreakType === 'Win' && currentStreakCount > 2 && (
+               <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/4 opacity-10 pointer-events-none">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="currentColor" className="text-emerald-500"><path d="M12 2c0 0-4.5 4.5-4.5 10s3 8.5 4.5 9 4.5-3.5 4.5-9-4.5-10-4.5-10z"/></svg>
+               </div>
+             )}
+           </div>
+
+           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
+             <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-1">Monthly Win Rate</p>
+             <p className="text-3xl font-mono text-indigo-600 dark:text-indigo-400 mb-1">{mWinRate}%</p>
+             <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium">{mTotalTrades} trades</p>
+           </div>
+           
+           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
+             <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-1">Monthly Pips</p>
+             <p className={`text-3xl font-mono mb-1 ${mTotalPips >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`}>
+              {mTotalPips >= 0 && mTotalPips !== 0 ? '+' : ''}{formatPips(mTotalPips)}
+             </p>
+             <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium pb-[1px]">net this month</p>
+           </div>
         </div>
 
-        {/* Trade Chart */}
-        <PerformanceChart trades={trades} />
+        {/* Trade Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <PerformanceChart trades={trades} />
+          <StrategyPerformance trades={trades} />
+        </div>
 
         {/* Toolbar (Search, Filter, Export) */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-end shadow-sm">
@@ -300,11 +341,18 @@ export default function App() {
             </div>
           </div>
 
-          <div className="w-full md:w-auto pt-2 md:pt-0">
+          <div className="w-full md:w-auto pt-2 md:pt-0 flex flex-col sm:flex-row gap-2">
+             <button 
+              onClick={() => setIsImportOpen(true)}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              Import CSV
+            </button>
              <button 
               onClick={() => exportToCSV(filteredTrades)}
               disabled={filteredTrades.length === 0}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
               Export CSV
@@ -373,6 +421,18 @@ export default function App() {
             }
           }} 
           onCancel={() => setIsFormOpen(false)} 
+        />
+      )}
+
+      {isImportOpen && user && (
+        <ImportWizard
+          onImport={async (importedTrades) => {
+            for (const t of importedTrades) {
+              await addTrade(t as any);
+            }
+            toast.success(`Successfully imported ${importedTrades.length} trades.`);
+          }}
+          onClose={() => setIsImportOpen(false)}
         />
       )}
     </div>

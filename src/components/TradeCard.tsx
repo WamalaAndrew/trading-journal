@@ -15,6 +15,10 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
   const isLoss = trade.resultStatus === 'Loss';
   const isBreakeven = trade.resultStatus === 'Breakeven';
   
+  const formatPips = (pips: number) => {
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(pips);
+  };
+
   const statusColor = isWin ? 'text-emerald-600 bg-emerald-100 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-400/20' 
                    : isLoss ? 'text-red-600 bg-red-100 border-red-200 dark:text-red-400 dark:bg-red-400/10 dark:border-red-400/20'
                    : isBreakeven ? 'text-blue-600 bg-blue-100 border-blue-200 dark:text-blue-400 dark:bg-blue-400/10 dark:border-blue-400/20'
@@ -63,7 +67,7 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
           <p className="text-xs text-zinc-500 mb-1 flex items-center gap-1.5"><Crosshair className="w-3.5 h-3.5" /> Entry/SL</p>
           <div className="flex flex-col">
           <p className="text-sm font-mono text-zinc-800 dark:text-zinc-300">{trade.entryPrice}</p>
-          <p className="text-xs font-mono text-red-500 dark:text-red-400">{trade.stopLossPrice} ({trade.stopLossPips}p)</p>
+          <p className="text-xs font-mono text-red-500 dark:text-red-400">{trade.stopLossPrice} ({formatPips(trade.stopLossPips)}p)</p>
           </div>
         </div>
         <div className="bg-zinc-50 dark:bg-zinc-950 rounded-lg p-3 border border-zinc-100 dark:border-zinc-800/50">
@@ -72,7 +76,7 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
           <p className="text-sm font-mono text-emerald-600 dark:text-emerald-400">{trade.takeProfitPrice} (1:{trade.takeProfitRR})</p>
           {trade.resultPips !== undefined && trade.resultPips !== null && (
             <p className={`text-xs font-mono ${trade.resultPips > 0 ? 'text-emerald-600 dark:text-emerald-400' : trade.resultPips < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
-              {trade.resultPips > 0 ? '+' : ''}{trade.resultPips} pips
+              {trade.resultPips > 0 ? '+' : ''}{formatPips(trade.resultPips)} pips
             </p>
           )}
           </div>
