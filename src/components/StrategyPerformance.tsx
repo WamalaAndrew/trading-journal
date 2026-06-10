@@ -1,5 +1,6 @@
 import { Trade } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { getActualPips } from '../utils/tradeCalculations';
 
 interface StrategyPerformanceProps {
   trades: Trade[];
@@ -11,7 +12,7 @@ export function StrategyPerformance({ trades }: StrategyPerformanceProps) {
   // Calculate performance per pair
   const pairStats: Record<string, { pips: number; count: number }> = {};
   trades.forEach(t => {
-    const pips = Number(t.resultPips) || 0;
+    const pips = getActualPips(t);
     const pair = t.pair || 'Unknown';
     if (!pairStats[pair]) {
       pairStats[pair] = { pips: 0, count: 0 };
@@ -30,7 +31,7 @@ export function StrategyPerformance({ trades }: StrategyPerformanceProps) {
     .slice(0, 10); // Top 10 pairs
 
   const formatPips = (pips: number) => {
-    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(pips);
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(pips);
   };
 
   const CustomTooltip = ({ active, payload }: any) => {

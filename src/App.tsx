@@ -7,14 +7,16 @@ import { useState, useEffect } from 'react';
 import { useTrades } from './useTrades';
 import { TradeForm, STRATEGY_OPTIONS } from './components/TradeForm';
 import { TradeCard } from './components/TradeCard';
+import { CumulativeGrowthChart } from './components/CumulativeGrowthChart';
 import { PerformanceChart } from './components/PerformanceChart';
 import { StrategyPerformance } from './components/StrategyPerformance';
-import { exportToCSV } from './exportUtils';
+import { getActualPips } from './utils/tradeCalculations';
+import { exportToCSV, exportToPDF } from './exportUtils';
 import { ImportWizard } from './components/ImportWizard';
 import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload } from 'lucide-react';
 import { auth } from './firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { Toaster } from 'react-hot-toast';
+import { Toaster, toast } from 'react-hot-toast';
 
 export default function App() {
   const { trades, addTrade, updateTrade, deleteTrade } = useTrades();
@@ -83,22 +85,25 @@ export default function App() {
   const mTotalTrades = monthlyTrades.length;
   const mWins = monthlyTrades.filter(t => t.resultStatus === 'Win').length;
   const mWinRate = mTotalTrades > 0 ? Math.round((mWins / mTotalTrades) * 100) : 0;
-  const mTotalPips = monthlyTrades.reduce((acc, t) => acc + (Number(t.resultPips) || 0), 0);
+  const mTotalPips = monthlyTrades.reduce((acc, t) => acc + getActualPips(t), 0);
 
   const formatPips = (pips: number) => {
-    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(pips);
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(pips);
   };
 
   // Overall Quick stats
   const totalTrades = trades.length;
   const wins = trades.filter(t => t.resultStatus === 'Win').length;
   const winRate = totalTrades > 0 ? Math.round((wins / totalTrades) * 100) : 0;
-  const totalPips = trades.reduce((acc, t) => acc + (Number(t.resultPips) || 0), 0);
+  const totalPips = trades.reduce((acc, t) => acc + getActualPips(t), 0);
 
   // Streak Calculation
   let currentStreakType: 'Win' | 'Loss' | 'None' = 'None';
   let currentStreakCount = 0;
   
+  let maxWinStreak = 0;
+  let maxLossStreak = 0;
+
   const closedTrades = trades.filter(t => t.resultStatus !== 'Open/Pending');
   if (closedTrades.length > 0) {
     const mostRecentStatus = closedTrades[0].resultStatus;
@@ -115,6 +120,25 @@ export default function App() {
         else break;
       }
     }
+
+    // Calculate max streaks
+    let runningWin = 0;
+    let runningLoss = 0;
+    const chronologicalTrades = [...closedTrades].reverse();
+    chronologicalTrades.forEach(t => {
+        if (t.resultStatus === 'Win') {
+            runningWin++;
+            runningLoss = 0;
+            if (runningWin > maxWinStreak) maxWinStreak = runningWin;
+        } else if (t.resultStatus === 'Loss') {
+            runningLoss++;
+            runningWin = 0;
+            if (runningLoss > maxLossStreak) maxLossStreak = runningLoss;
+        } else {
+            runningWin = 0;
+            runningLoss = 0;
+        }
+    });
   }
 
   // Filtered Trades
@@ -250,10 +274,20 @@ export default function App() {
              )}
            </div>
 
-           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
-             <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-1">Monthly Win Rate</p>
-             <p className="text-3xl font-mono text-indigo-600 dark:text-indigo-400 mb-1">{mWinRate}%</p>
-             <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium">{mTotalTrades} trades</p>
+           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+             <div>
+               <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-2">Max Streaks</p>
+               <div className="flex items-center gap-4">
+                 <div>
+                   <p className="text-lg font-mono text-emerald-600 dark:text-emerald-400 font-bold">{maxWinStreak} <span className="text-xs font-sans font-medium opacity-80">W</span></p>
+                 </div>
+                 <div className="h-4 w-px bg-indigo-200 dark:bg-indigo-800"></div>
+                 <div>
+                   <p className="text-lg font-mono text-red-600 dark:text-red-400 font-bold">{maxLossStreak} <span className="text-xs font-sans font-medium opacity-80">L</span></p>
+                 </div>
+               </div>
+             </div>
+             <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium pb-[1px] mt-2">longest consecutive</p>
            </div>
            
            <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
@@ -267,6 +301,7 @@ export default function App() {
 
         {/* Trade Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <CumulativeGrowthChart trades={trades} />
           <PerformanceChart trades={trades} />
           <StrategyPerformance trades={trades} />
         </div>
@@ -355,7 +390,15 @@ export default function App() {
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
-              Export CSV
+              CSV
+            </button>
+             <button 
+              onClick={() => exportToPDF(filteredTrades)}
+              disabled={filteredTrades.length === 0}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download className="w-4 h-4" />
+              PDF Report
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Trade } from '../types';
 import { Activity, Percent, Crosshair, TrendingUp, AlertCircle, X, Check } from 'lucide-react';
+import { getActualPips } from '../utils/tradeCalculations';
 
 interface TradeCardProps {
   trade: Trade;
@@ -16,7 +17,7 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
   const isBreakeven = trade.resultStatus === 'Breakeven';
   
   const formatPips = (pips: number) => {
-    return Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(pips);
+    return Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(pips);
   };
 
   const statusColor = isWin ? 'text-emerald-600 bg-emerald-100 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-400/10 dark:border-emerald-400/20' 
@@ -75,8 +76,8 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
           <div className="flex flex-col">
           <p className="text-sm font-mono text-emerald-600 dark:text-emerald-400">{trade.takeProfitPrice} (1:{trade.takeProfitRR})</p>
           {trade.resultPips !== undefined && trade.resultPips !== null && (
-            <p className={`text-xs font-mono ${trade.resultPips > 0 ? 'text-emerald-600 dark:text-emerald-400' : trade.resultPips < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
-              {trade.resultPips > 0 ? '+' : ''}{formatPips(trade.resultPips)} pips
+            <p className={`text-xs font-mono ${getActualPips(trade) > 0 ? 'text-emerald-600 dark:text-emerald-400' : getActualPips(trade) < 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-600 dark:text-zinc-400'}`}>
+              {getActualPips(trade) > 0 ? '+' : ''}{formatPips(getActualPips(trade))} pips
             </p>
           )}
           </div>
@@ -105,8 +106,8 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wide">Realized R:R</span>
-            <span className={`text-xs font-mono font-bold ${trade.resultPips >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-              {(trade.resultPips / trade.stopLossPips).toFixed(2)}R
+            <span className={`text-xs font-mono font-bold ${getActualPips(trade) >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+              {(getActualPips(trade) / trade.stopLossPips).toFixed(2)}R
             </span>
           </div>
           <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex relative">
@@ -118,8 +119,8 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
              />
              {/* Bar Fill */}
              <div 
-               className={`h-full transition-all duration-500 ${trade.resultPips >= 0 ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-red-500 dark:bg-red-400'}`}
-               style={{ width: `${Math.min((Math.abs(trade.resultPips / trade.stopLossPips) / Math.max(trade.takeProfitRR, 3)) * 100, 100)}%` }}
+               className={`h-full transition-all duration-500 ${getActualPips(trade) >= 0 ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-red-500 dark:bg-red-400'}`}
+               style={{ width: `${Math.min((Math.abs(getActualPips(trade) / trade.stopLossPips) / Math.max(trade.takeProfitRR, 3)) * 100, 100)}%` }}
              />
           </div>
         </div>
