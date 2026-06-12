@@ -7,9 +7,14 @@ import { useState, useEffect } from 'react';
 import { useTrades } from './useTrades';
 import { TradeForm, STRATEGY_OPTIONS } from './components/TradeForm';
 import { TradeCard } from './components/TradeCard';
+import { MonthlyTargetProgress } from './components/MonthlyTargetProgress';
 import { CumulativeGrowthChart } from './components/CumulativeGrowthChart';
 import { PerformanceChart } from './components/PerformanceChart';
 import { StrategyPerformance } from './components/StrategyPerformance';
+import { DailyPipsChart } from './components/DailyPipsChart';
+import { RollingWinRateChart } from './components/RollingWinRateChart';
+import { WeeklyInsight } from './components/WeeklyInsight';
+import { CalendarView } from './components/CalendarView';
 import { getActualPips } from './utils/tradeCalculations';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { ImportWizard } from './components/ImportWizard';
@@ -28,8 +33,11 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authChecking, setAuthChecking] = useState(true);
 
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
   // Filtering states
   const [searchPair, setSearchPair] = useState('');
+  const [searchNotes, setSearchNotes] = useState('');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterStrategy, setFilterStrategy] = useState('All');
   const [dateFrom, setDateFrom] = useState('');
@@ -144,6 +152,13 @@ export default function App() {
   // Filtered Trades
   const filteredTrades = trades.filter(t => {
     if (searchPair && !t.pair.toLowerCase().includes(searchPair.toLowerCase())) return false;
+    if (searchNotes) {
+      const q = searchNotes.toLowerCase();
+      const inNotes = t.notes?.toLowerCase().includes(q);
+      const inDidWell = t.didWell?.toLowerCase().includes(q);
+      const inWouldChange = t.wouldChange?.toLowerCase().includes(q);
+      if (!inNotes && !inDidWell && !inWouldChange) return false;
+    }
     if (filterStatus !== 'All' && t.resultStatus !== filterStatus) return false;
     if (filterStrategy !== 'All' && (!t.strategyTags || !t.strategyTags.includes(filterStrategy))) return false;
     
@@ -155,6 +170,17 @@ export default function App() {
     }
     return true;
   });
+
+  const filteredClosedTrades = filteredTrades.filter(t => t.resultStatus !== 'Open/Pending');
+  let validRRCount = 0;
+  const filteredAvgRR = filteredClosedTrades.reduce((acc, t) => {
+    if (t.stopLossPips && t.stopLossPips > 0) {
+      validRRCount++;
+      return acc + (getActualPips(t) / t.stopLossPips);
+    }
+    return acc;
+  }, 0);
+  const avgRRDisplay = validRRCount > 0 ? (filteredAvgRR / validRRCount).toFixed(2) : '0.00';
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 transition-colors duration-200">
@@ -290,24 +316,22 @@ export default function App() {
              <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium pb-[1px] mt-2">longest consecutive</p>
            </div>
            
-           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm">
-             <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-1">Monthly Pips</p>
-             <p className={`text-3xl font-mono mb-1 ${mTotalPips >= 0 ? 'text-indigo-600 dark:text-indigo-400' : 'text-red-600 dark:text-red-400'}`}>
-              {mTotalPips >= 0 && mTotalPips !== 0 ? '+' : ''}{formatPips(mTotalPips)}
-             </p>
-             <p className="text-xs text-indigo-600/70 dark:text-indigo-500/60 font-medium pb-[1px]">net this month</p>
-           </div>
+            <MonthlyTargetProgress currentPips={mTotalPips} />
         </div>
 
-        {/* Trade Charts */}
+        {/* Trade Charts & Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          <CumulativeGrowthChart trades={trades} />
-          <PerformanceChart trades={trades} />
-          <StrategyPerformance trades={trades} />
+          <WeeklyInsight trades={filteredTrades} />
+          <StrategyPerformance trades={filteredTrades} />
+          <CumulativeGrowthChart trades={filteredTrades} />
+          <PerformanceChart trades={filteredTrades} />
+          <DailyPipsChart trades={filteredTrades} />
+          <RollingWinRateChart trades={filteredTrades} />
         </div>
 
         {/* Toolbar (Search, Filter, Export) */}
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 mb-6 flex flex-col md:flex-row gap-4 items-end shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 mb-6 flex flex-col gap-4 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-4 items-end">
           <div className="w-full md:w-auto flex-1">
             <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wide">Search Pair</label>
             <div className="relative">
@@ -317,6 +341,20 @@ export default function App() {
                 placeholder="e.g. BTCUSD" 
                 value={searchPair}
                 onChange={(e) => setSearchPair(e.target.value)}
+                className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              />
+            </div>
+          </div>
+
+          <div className="w-full md:w-auto flex-1">
+            <label className="block text-xs font-medium text-zinc-500 dark:text-zinc-400 mb-1.5 uppercase tracking-wide">Search Notes</label>
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input 
+                type="text" 
+                placeholder="e.g. news, missed entry..." 
+                value={searchNotes}
+                onChange={(e) => setSearchNotes(e.target.value)}
                 className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg pl-9 pr-4 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             </div>
@@ -375,9 +413,19 @@ export default function App() {
               </div>
             </div>
           </div>
+          </div>
 
-          <div className="w-full md:w-auto pt-2 md:pt-0 flex flex-col sm:flex-row gap-2">
-             <button 
+          <div className="flex flex-col md:flex-row gap-4 items-end justify-between border-t border-zinc-100 dark:border-zinc-800 pt-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg">
+              <Activity className="w-4 h-4 text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Avg Realized R:R (Filtered):</span>
+              <span className={`text-sm font-bold font-mono ${Number(avgRRDisplay) > 0 ? 'text-emerald-500' : Number(avgRRDisplay) < 0 ? 'text-red-500' : 'text-zinc-500'}`}>
+                {Number(avgRRDisplay) > 0 ? '+' : ''}{avgRRDisplay}R
+              </span>
+            </div>
+
+            <div className="w-full md:w-auto pt-2 md:pt-0 flex flex-col sm:flex-row gap-2">
+               <button 
               onClick={() => setIsImportOpen(true)}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg text-sm font-medium transition-colors"
             >
@@ -402,51 +450,77 @@ export default function App() {
             </button>
           </div>
         </div>
+        </div>
 
-        {/* Trade List */}
+        {/* Trade List / Calendar */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between mb-4 gap-4">
             <h2 className="text-lg font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
               <ListFilter className="w-5 h-5 text-indigo-500" />
               Journal Entries 
               <span className="text-sm text-zinc-500 dark:text-zinc-400 font-normal">({filteredTrades.length})</span>
             </h2>
+            <div className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-lg w-full sm:w-auto">
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              >
+                List View
+              </button>
+              <button 
+                onClick={() => setViewMode('calendar')}
+                className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === 'calendar' ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
+              >
+                Calendar View
+              </button>
+            </div>
           </div>
 
-          {filteredTrades.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 border-dashed rounded-2xl shadow-sm">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 mb-4">
-                <Search className="w-8 h-8 text-zinc-400 dark:text-zinc-600" />
-              </div>
-              <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-300 mb-2">No matching trades found</h3>
-              <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm mx-auto">Adjust your filters or start tracking new entries to populate your journal.</p>
-              {trades.length === 0 && (
-                <button 
-                  onClick={() => {
-                    setEditTrade(null);
-                    setIsFormOpen(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add First Trade
-                </button>
-              )}
-            </div>
+          {viewMode === 'calendar' ? (
+            <CalendarView 
+              trades={filteredTrades} 
+              onEdit={(trade) => {
+                setEditTrade(trade);
+                setIsFormOpen(true);
+              }}
+              onDelete={deleteTrade}
+            />
           ) : (
-            <div className="space-y-4">
-              {filteredTrades.map(trade => (
-                <TradeCard 
-                  key={trade.id} 
-                  trade={trade} 
-                  onEdit={() => {
-                    setEditTrade(trade);
-                    setIsFormOpen(true);
-                  }}
-                  onDelete={deleteTrade}
-                />
-              ))}
-            </div>
+            filteredTrades.length === 0 ? (
+              <div className="text-center py-20 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 border-dashed rounded-2xl shadow-sm">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 mb-4">
+                  <Search className="w-8 h-8 text-zinc-400 dark:text-zinc-600" />
+                </div>
+                <h3 className="text-lg font-medium text-zinc-900 dark:text-zinc-300 mb-2">No matching trades found</h3>
+                <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm mx-auto">Adjust your filters or start tracking new entries to populate your journal.</p>
+                {trades.length === 0 && (
+                  <button 
+                    onClick={() => {
+                      setEditTrade(null);
+                      setIsFormOpen(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add First Trade
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredTrades.map(trade => (
+                  <TradeCard 
+                    key={trade.id} 
+                    trade={trade} 
+                    onEdit={() => {
+                      setEditTrade(trade);
+                      setIsFormOpen(true);
+                    }}
+                    onDelete={deleteTrade}
+                  />
+                ))}
+              </div>
+            )
           )}
         </div>
           </>

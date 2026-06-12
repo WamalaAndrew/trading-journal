@@ -39,7 +39,7 @@ service cloud.firestore {
       allow update: if isVerified() && isValidId(tradeId) && isValidTrade(incoming()) 
                      && incoming().userId == existing().userId
                      && incoming().createdAt == existing().createdAt
-                     && incoming().diff(existing()).affectedKeys().hasAny(['dateTime', 'pair', 'timeframe', 'macd4hDirection', 'macd1hCrossover', 'rsiAtEntry', 'entryPrice', 'stopLossPrice', 'stopLossPips', 'takeProfitPrice', 'takeProfitRR', 'resultStatus', 'didWell', 'wouldChange', 'exitPrice', 'exitReason', 'resultPips', 'notes', 'strategyTags']);
+                     && (incoming().diff(existing()).affectedKeys().size() == 0 || incoming().diff(existing()).affectedKeys().hasOnly(['dateTime', 'pair', 'timeframe', 'macd4hDirection', 'macd1hCrossover', 'rsiAtEntry', 'entryPrice', 'stopLossPrice', 'stopLossPips', 'takeProfitPrice', 'takeProfitRR', 'resultStatus', 'didWell', 'wouldChange', 'exitPrice', 'exitReason', 'resultPips', 'notes', 'strategyTags']));
       allow delete: if isVerified() && isValidId(tradeId) && existing().userId == request.auth.uid;
     }
   }

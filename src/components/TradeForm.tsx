@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Trade, MACDDirection, CrossoverType, ExitReason, ResultStatus } from '../types';
 import { calculateTradeFields } from '../utils/tradeCalculations';
-import { X, Plus, Save, Loader2 } from 'lucide-react';
+import { X, Plus, Save, Loader2, Bookmark, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
+
+interface AnalysisTemplate {
+  name: string;
+  didWell: string;
+  wouldChange: string;
+}
 
 interface TradeFormProps {
   initialData?: Trade;
@@ -20,9 +26,7 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch (e) {
-        // Log parse error if needed, fallback to default
-      }
+      } catch (e) {}
     }
     return {
       dateTime: new Date().toISOString().slice(0, 16),
@@ -33,11 +37,55 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
     };
   });
 
+  const [analysisTemplates, setAnalysisTemplates] = useState<AnalysisTemplate[]>([]);
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+
+  useEffect(() => {
+    const savedTemplates = localStorage.getItem('analysisTemplates');
+    if (savedTemplates) {
+      try {
+        setAnalysisTemplates(JSON.parse(savedTemplates));
+      } catch (e) {}
+    }
+  }, []);
+
   useEffect(() => {
     if (!initialData) {
       localStorage.setItem('tradeFormDraft', JSON.stringify(formData));
     }
   }, [formData, initialData]);
+
+  const handleSaveTemplate = () => {
+    if (!newTemplateName.trim()) return;
+    const newTemplate: AnalysisTemplate = {
+      name: newTemplateName,
+      didWell: formData.didWell || '',
+      wouldChange: formData.wouldChange || ''
+    };
+    const updated = [...analysisTemplates, newTemplate];
+    setAnalysisTemplates(updated);
+    localStorage.setItem('analysisTemplates', JSON.stringify(updated));
+    setNewTemplateName('');
+    setShowSaveTemplate(false);
+    toast.success('Template saved');
+  };
+
+  const applyTemplate = (template: AnalysisTemplate) => {
+    setFormData(prev => ({
+      ...prev,
+      didWell: template.didWell,
+      wouldChange: template.wouldChange
+    }));
+    toast.success('Template applied');
+  };
+
+  const deleteTemplate = (name: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = analysisTemplates.filter(t => t.name !== name);
+    setAnalysisTemplates(updated);
+    localStorage.setItem('analysisTemplates', JSON.stringify(updated));
+  };
 
   const toggleStrategy = (tag: string) => {
     setFormData(prev => {
@@ -73,6 +121,11 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
     if (submissionData.exitPrice === '') delete submissionData.exitPrice;
     if (submissionData.resultPips === '') delete submissionData.resultPips;
     if (submissionData.notes === '') delete submissionData.notes;
+    
+    // Strip internal/metadata fields returned from Firestore so they aren't merged back
+    if ('id' in submissionData) delete (submissionData as any).id;
+    if ('userId' in submissionData) delete (submissionData as any).userId;
+    if ('createdAt' in submissionData) delete (submissionData as any).createdAt;
     
     try {
       await onSubmit(submissionData as Omit<Trade, 'id'>);
@@ -257,7 +310,69 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
 
             {/* Review */}
             <div>
-              <h3 className="text-sm font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-4">Self Review</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase">Self Review</h3>
+                <div className="relative">
+                  {analysisTemplates.length > 0 && (
+                    <div className="flex items-center gap-2 mb-2 justify-end flex-wrap">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">Templates:</span>
+                      {analysisTemplates.map(t => (
+                        <button
+                          key={t.name}
+                          type="button"
+                          onClick={() => applyTemplate(t)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded text-xs font-medium transition-colors group"
+                        >
+                          <Bookmark className="w-3 h-3 text-indigo-500" />
+                          {t.name}
+                          <div 
+                            onClick={(e) => deleteTemplate(t.name, e)}
+                            className="ml-1 opacity-0 group-hover:opacity-100 p-0.5 hover:bg-zinc-300 dark:hover:bg-zinc-600 rounded-full transition-all"
+                          >
+                            <X className="w-2.5 h-2.5 text-zinc-500" />
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowSaveTemplate(!showSaveTemplate)}
+                    className="text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                  >
+                    + Save current as template
+                  </button>
+                  {showSaveTemplate && (
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 shadow-xl z-20">
+                      <label className="text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1.5 block">Template Name</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          autoFocus
+                          value={newTemplateName}
+                          onChange={(e) => setNewTemplateName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveTemplate();
+                            }
+                          }}
+                          placeholder="e.g. Good Setup"
+                          className="flex-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded md:px-2 py-1.5 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveTemplate}
+                          disabled={!newTemplateName.trim()}
+                          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white p-1.5 rounded transition-colors"
+                        >
+                          <Check className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="space-y-4">
                  <div className="space-y-2">
                   <label className="text-sm text-zinc-600 dark:text-zinc-400">What I did well (One honest sentence)</label>
