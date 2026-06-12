@@ -80,90 +80,148 @@ export function exportToCSV(trades: Trade[]) {
   document.body.removeChild(link);
 }
 
-export function exportToPDF(trades: Trade[]) {
-  const doc = new jsPDF('landscape');
-  
-  const totalTrades = trades.length;
-  const wins = trades.filter(t => t.resultStatus === 'Win').length;
-  const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
-  const totalPips = trades.reduce((acc, t) => acc + getActualPips(t), 0).toFixed(2);
+export interface PDFExportOptions {
+  includeSummary: boolean;
+  includeTrades: boolean;
+  includeCharts: boolean;
+}
 
+export async function exportToPDF(trades: Trade[], options: PDFExportOptions = { includeSummary: true, includeTrades: true, includeCharts: false }) {
+  const doc = new jsPDF('landscape');
+  let currentY = 14;
+  
   // Styling and Logo Mock
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
   doc.setTextColor(79, 70, 229); // Indigo 600
   doc.text("ALPHALOG", 14, 25);
+  currentY = 32;
   
   doc.setFontSize(10);
   doc.setTextColor(113, 113, 122); // Zinc 500
   doc.setFont('helvetica', 'normal');
-  doc.text("Professional Trading Journal Report", 14, 32);
-  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 38);
+  doc.text("Professional Trading Journal Report", 14, currentY);
+  currentY += 6;
+  doc.text(`Generated: ${new Date().toLocaleString()}`, 14, currentY);
+  currentY += 14;
 
-  // Performance Summary
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
-  doc.setTextColor(39, 39, 42); // Zinc 800
-  doc.text("Overview", 14, 52);
+  if (options.includeSummary) {
+    const totalTrades = trades.length;
+    const wins = trades.filter(t => t.resultStatus === 'Win').length;
+    const winRate = totalTrades > 0 ? ((wins / totalTrades) * 100).toFixed(1) : '0.0';
+    const totalPips = trades.reduce((acc, t) => acc + getActualPips(t), 0).toFixed(2);
 
-  doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(63, 63, 70);
-  doc.text(`Total Trades: ${totalTrades}`, 14, 60);
-  doc.text(`Win Rate: ${winRate}%`, 60, 60);
-  
-  const pipsColor = Number(totalPips) >= 0 ? [16, 185, 129] : [239, 68, 68];
-  doc.text('Net Pips: ', 110, 60);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(pipsColor[0], pipsColor[1], pipsColor[2]);
-  doc.text(`${totalPips}`, 128, 60);
+    // Performance Summary
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(39, 39, 42); // Zinc 800
+    doc.text("Overview", 14, currentY);
+    currentY += 8;
 
-  // Table
-  const tableColumn = ["Date", "Pair", "Strategy", "Status", "R:R", "Result Pips"];
-  const tableRows = [];
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(63, 63, 70);
+    doc.text(`Total Trades: ${totalTrades}`, 14, currentY);
+    doc.text(`Win Rate: ${winRate}%`, 60, currentY);
+    
+    const pipsColor = Number(totalPips) >= 0 ? [16, 185, 129] : [239, 68, 68];
+    doc.text('Net Pips: ', 110, currentY);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(pipsColor[0], pipsColor[1], pipsColor[2]);
+    doc.text(`${totalPips}`, 128, currentY);
+    currentY += 10;
+  }
 
-  trades.forEach(t => {
-    const tradeData = [
-      new Date(t.dateTime).toLocaleDateString(),
-      t.pair,
-      (t.strategyTags || []).join(', ') || 'N/A',
-      t.resultStatus || 'Open',
-      t.takeProfitRR ? `1:${t.takeProfitRR}` : 'N/A',
-      t.resultPips !== undefined && t.resultPips !== null ? `${getActualPips(t)}` : '-'
-    ];
-    tableRows.push(tradeData);
-  });
+  if (options.includeCharts) {
+    // Try to find the charts container in the DOM
+    const chartsContainer = document.getElementById('charts-export-container');
+    if (chartsContainer) {
+      try {
+        const { toPng } = await import('html-to-image');
+        const imgData = await toPng(chartsContainer, { 
+          quality: 1, 
+          pixelRatio: 2,
+          backgroundColor: document.documentElement.classList.contains('dark') ? '#09090b' : '#ffffff' // zinc-950 or white
+        });
+        
+        // Load image to get its dimensions
+        const img = new Image();
+        img.src = imgData;
+        await new Promise((resolve) => { img.onload = resolve; });
 
-  autoTable(doc, {
-    head: [tableColumn],
-    body: tableRows,
-    startY: 70,
-    theme: 'striped',
-    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 4 },
-    willDrawCell: function(data) {
-      if (data.section === 'body' && data.column.index === 3) {
-        if (data.cell.raw === 'Win') {
-          data.cell.styles.textColor = [16, 185, 129];
-          data.cell.styles.fontStyle = 'bold';
-        } else if (data.cell.raw === 'Loss') {
-          data.cell.styles.textColor = [239, 68, 68];
-          data.cell.styles.fontStyle = 'bold';
+        const pdfWidth = doc.internal.pageSize.getWidth() - 28;
+        const imgWidth = pdfWidth;
+        const imgHeight = (img.height * imgWidth) / img.width;
+        
+        // ensure it fits on page, if not, add page or scale
+        if (currentY + imgHeight > doc.internal.pageSize.getHeight() - 14) {
+             doc.addPage();
+             currentY = 14;
         }
-      }
-      if (data.section === 'body' && data.column.index === 5) {
-        const val = Number(data.cell.raw);
-        if (!isNaN(val)) {
-          if (val > 0) {
-            data.cell.styles.textColor = [16, 185, 129];
-          } else if (val < 0) {
-            data.cell.styles.textColor = [239, 68, 68];
-          }
-          data.cell.styles.fontStyle = 'bold';
-        }
+
+        doc.text("Performance Charts", 14, currentY);
+        currentY += 4;
+        doc.addImage(imgData, 'PNG', 14, currentY, imgWidth, imgHeight);
+        currentY += imgHeight + 10;
+      } catch (err) {
+        console.error("Failed to capture charts for PDF", err);
       }
     }
-  });
+  }
+
+  if (options.includeTrades && trades.length > 0) {
+    if (currentY > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      currentY = 14;
+    }
+    
+    // Table
+    const tableColumn = ["Date", "Pair", "Strategy", "Status", "R:R", "Result Pips"];
+    const tableRows = [];
+
+    trades.forEach(t => {
+      const tradeData = [
+        new Date(t.dateTime).toLocaleDateString(),
+        t.pair,
+        (t.strategyTags || []).join(', ') || 'N/A',
+        t.resultStatus || 'Open',
+        t.takeProfitRR ? `1:${t.takeProfitRR}` : 'N/A',
+        t.resultPips !== undefined && t.resultPips !== null ? `${getActualPips(t)}` : '-'
+      ];
+      tableRows.push(tradeData);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: currentY,
+      theme: 'striped',
+      headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
+      styles: { fontSize: 10, cellPadding: 4 },
+      willDrawCell: function(data) {
+        if (data.section === 'body' && data.column.index === 3) {
+          if (data.cell.raw === 'Win') {
+            data.cell.styles.textColor = [16, 185, 129];
+            data.cell.styles.fontStyle = 'bold';
+          } else if (data.cell.raw === 'Loss') {
+            data.cell.styles.textColor = [239, 68, 68];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+        if (data.section === 'body' && data.column.index === 5) {
+          const val = Number(data.cell.raw);
+          if (!isNaN(val)) {
+            if (val > 0) {
+              data.cell.styles.textColor = [16, 185, 129];
+            } else if (val < 0) {
+              data.cell.styles.textColor = [239, 68, 68];
+            }
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
+    });
+  }
 
   doc.save(`alphalog_performance_report_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

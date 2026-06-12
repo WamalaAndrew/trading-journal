@@ -9,7 +9,7 @@ interface RollingWinRateChartProps {
 export function RollingWinRateChart({ trades }: RollingWinRateChartProps) {
   // Sort trades chronologically
   const sortedTrades = [...trades]
-    .filter(t => t.resultStatus !== 'Open/Pending' && t.resultStatus !== 'Open')
+    .filter(t => t.resultStatus !== 'Open/Pending')
     .sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime());
 
   if (sortedTrades.length === 0) return null;

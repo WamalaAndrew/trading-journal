@@ -117,10 +117,10 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
     const submissionData = { ...formData };
     
     // Remove optional fields if they are empty strings so Firestore rules (which expect numbers or specific strings) aren't violated
-    if (submissionData.exitReason === '') delete submissionData.exitReason;
-    if (submissionData.exitPrice === '') delete submissionData.exitPrice;
-    if (submissionData.resultPips === '') delete submissionData.resultPips;
-    if (submissionData.notes === '') delete submissionData.notes;
+    if ((submissionData as any).exitReason === '') delete submissionData.exitReason;
+    if ((submissionData as any).exitPrice === '') delete submissionData.exitPrice;
+    if ((submissionData as any).resultPips === '') delete submissionData.resultPips;
+    if ((submissionData as any).notes === '') delete submissionData.notes;
     
     // Strip internal/metadata fields returned from Firestore so they aren't merged back
     if ('id' in submissionData) delete (submissionData as any).id;

@@ -13,20 +13,24 @@ import { PerformanceChart } from './components/PerformanceChart';
 import { StrategyPerformance } from './components/StrategyPerformance';
 import { DailyPipsChart } from './components/DailyPipsChart';
 import { RollingWinRateChart } from './components/RollingWinRateChart';
+import { HourlyPerformanceChart } from './components/HourlyPerformanceChart';
 import { WeeklyInsight } from './components/WeeklyInsight';
 import { CalendarView } from './components/CalendarView';
 import { getActualPips } from './utils/tradeCalculations';
+import { ExportConfigModal } from './components/ExportConfigModal';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { ImportWizard } from './components/ImportWizard';
-import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload } from 'lucide-react';
+import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload, Sparkles, Loader2 } from 'lucide-react';
 import { auth } from './firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Toaster, toast } from 'react-hot-toast';
+import ReactMarkdown from 'react-markdown';
 
 export default function App() {
   const { trades, addTrade, updateTrade, deleteTrade } = useTrades();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportConfigOpen, setIsExportConfigOpen] = useState(false);
   const [editTrade, setEditTrade] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
@@ -34,6 +38,10 @@ export default function App() {
   const [authChecking, setAuthChecking] = useState(true);
 
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
+  // Analysis states
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
 
   // Filtering states
   const [searchPair, setSearchPair] = useState('');
@@ -171,6 +179,28 @@ export default function App() {
     return true;
   });
 
+  const pairStats = trades.reduce((acc, t) => {
+    if (!acc[t.pair]) {
+      acc[t.pair] = { wins: 0, total: 0, pips: 0 };
+    }
+    acc[t.pair].total++;
+    if (t.resultStatus === 'Win') acc[t.pair].wins++;
+    acc[t.pair].pips += getActualPips(t);
+    return acc;
+  }, {} as Record<string, { wins: number, total: number, pips: number }>);
+  
+  let topPair = { name: '-', winRate: 0, pips: 0, total: 0 };
+  for (const [pair, stats] of Object.entries(pairStats)) {
+    const rate = stats.total > 0 ? (stats.wins / stats.total) * 100 : 0;
+    if (rate > topPair.winRate) {
+       topPair = { name: pair, winRate: rate, pips: stats.pips, total: stats.total };
+    } else if (rate === topPair.winRate && stats.total > 0) {
+       if (stats.pips > topPair.pips || topPair.total === 0) {
+           topPair = { name: pair, winRate: rate, pips: stats.pips, total: stats.total };
+       }
+    }
+  }
+
   const filteredClosedTrades = filteredTrades.filter(t => t.resultStatus !== 'Open/Pending');
   let validRRCount = 0;
   const filteredAvgRR = filteredClosedTrades.reduce((acc, t) => {
@@ -181,6 +211,40 @@ export default function App() {
     return acc;
   }, 0);
   const avgRRDisplay = validRRCount > 0 ? (filteredAvgRR / validRRCount).toFixed(2) : '0.00';
+
+  const handleAnalysis = async () => {
+    if (filteredClosedTrades.length === 0) {
+      toast.error('No closed trades to analyze');
+      return;
+    }
+    setAnalysisLoading(true);
+    setAnalysisResult(null);
+    try {
+      const tradesText = filteredClosedTrades
+        .filter(t => t.didWell || t.wouldChange || t.notes)
+        .map(t => `Trade (${t.resultStatus}):\nDid well: ${t.didWell || '-'}\nWould change: ${t.wouldChange || '-'}\nNotes: ${t.notes || '-'}`)
+        .join('\n\n');
+
+      if (!tradesText.trim()) {
+        toast.error('No notes found in these trades to analyze.');
+        setAnalysisLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/analyze-performance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tradesText })
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      setAnalysisResult(data.result);
+    } catch (e: any) {
+       toast.error(e.message || 'Error analyzing trades');
+    } finally {
+       setAnalysisLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 transition-colors duration-200">
@@ -266,8 +330,8 @@ export default function App() {
         ) : (
           <>
             {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-           <div className="col-span-2 lg:col-span-5 mb-1 mt-2">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
+           <div className="col-span-2 lg:col-span-6 mb-1 mt-2">
              <h2 className="text-sm font-semibold tracking-wider text-zinc-500 dark:text-zinc-400 uppercase">Performance Snapshot</h2>
            </div>
           
@@ -287,6 +351,16 @@ export default function App() {
 
            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm col-span-2 lg:col-span-1 flex flex-col justify-center relative overflow-hidden">
              <div className="relative z-10">
+               <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Top Pair</p>
+               <p className="text-3xl font-mono text-zinc-900 dark:text-zinc-100 mb-1">{topPair.name !== '-' ? topPair.name : 'N/A'}</p>
+               <p className="text-xs text-zinc-400 dark:text-zinc-500 font-medium">
+                 {topPair.total > 0 ? `${Math.round(topPair.winRate)}% WR (${formatPips(topPair.pips)} pips)` : '-'}
+               </p>
+             </div>
+           </div>
+
+           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm col-span-2 lg:col-span-1 flex flex-col justify-center relative overflow-hidden">
+             <div className="relative z-10">
                <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-1">Active Streak</p>
                <p className={`text-3xl font-mono mb-1 ${currentStreakType === 'Win' ? 'text-emerald-500 dark:text-emerald-400' : currentStreakType === 'Loss' ? 'text-red-500 dark:text-red-400' : 'text-zinc-500 dark:text-zinc-400'}`}>
                  {currentStreakType !== 'None' ? `${currentStreakCount} ${currentStreakType}s` : 'None'}
@@ -300,7 +374,7 @@ export default function App() {
              )}
            </div>
 
-           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+           <div className="bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl p-5 shadow-sm flex flex-col justify-between hidden lg:flex">
              <div>
                <p className="text-sm text-indigo-700 dark:text-indigo-500/80 mb-2">Max Streaks</p>
                <div className="flex items-center gap-4">
@@ -320,13 +394,14 @@ export default function App() {
         </div>
 
         {/* Trade Charts & Insights */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8" id="charts-export-container">
           <WeeklyInsight trades={filteredTrades} />
           <StrategyPerformance trades={filteredTrades} />
           <CumulativeGrowthChart trades={filteredTrades} />
           <PerformanceChart trades={filteredTrades} />
           <DailyPipsChart trades={filteredTrades} />
           <RollingWinRateChart trades={filteredTrades} />
+          <HourlyPerformanceChart trades={filteredTrades} />
         </div>
 
         {/* Toolbar (Search, Filter, Export) */}
@@ -416,12 +491,23 @@ export default function App() {
           </div>
 
           <div className="flex flex-col md:flex-row gap-4 items-end justify-between border-t border-zinc-100 dark:border-zinc-800 pt-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg">
-              <Activity className="w-4 h-4 text-zinc-500" />
-              <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Avg Realized R:R (Filtered):</span>
-              <span className={`text-sm font-bold font-mono ${Number(avgRRDisplay) > 0 ? 'text-emerald-500' : Number(avgRRDisplay) < 0 ? 'text-red-500' : 'text-zinc-500'}`}>
-                {Number(avgRRDisplay) > 0 ? '+' : ''}{avgRRDisplay}R
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800/50 rounded-lg">
+                <Activity className="w-4 h-4 text-zinc-500" />
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Avg Realized R:R (Filtered):</span>
+                <span className={`text-sm font-bold font-mono ${Number(avgRRDisplay) > 0 ? 'text-emerald-500' : Number(avgRRDisplay) < 0 ? 'text-red-500' : 'text-zinc-500'}`}>
+                  {Number(avgRRDisplay) > 0 ? '+' : ''}{avgRRDisplay}R
+                </span>
+              </div>
+              
+              <button
+                onClick={handleAnalysis}
+                disabled={analysisLoading}
+                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-lg font-medium text-sm transition-colors disabled:opacity-50"
+              >
+                {analysisLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Analyze Performance
+              </button>
             </div>
 
             <div className="w-full md:w-auto pt-2 md:pt-0 flex flex-col sm:flex-row gap-2">
@@ -441,7 +527,7 @@ export default function App() {
               CSV
             </button>
              <button 
-              onClick={() => exportToPDF(filteredTrades)}
+              onClick={() => setIsExportConfigOpen(true)}
               disabled={filteredTrades.length === 0}
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-indigo-500 hover:bg-indigo-600 dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -451,6 +537,24 @@ export default function App() {
           </div>
         </div>
         </div>
+
+        {analysisResult && (
+          <div className="bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/10 dark:to-zinc-900 border border-indigo-100 dark:border-indigo-900/30 rounded-xl p-6 mb-6 shadow-sm relative">
+            <button 
+              onClick={() => setAnalysisResult(null)}
+              className="absolute top-4 right-4 p-1 rounded-full text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 dark:hover:text-zinc-300 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            </button>
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-indigo-500" />
+              <h2 className="text-lg font-medium text-indigo-900 dark:text-indigo-100">AI Performance Analysis</h2>
+            </div>
+            <div className="prose prose-sm dark:prose-invert prose-indigo max-w-none prose-p:leading-relaxed prose-li:my-1">
+              <ReactMarkdown>{analysisResult}</ReactMarkdown>
+            </div>
+          </div>
+        )}
 
         {/* Trade List / Calendar */}
         <div className="space-y-4">
@@ -550,6 +654,13 @@ export default function App() {
             toast.success(`Successfully imported ${importedTrades.length} trades.`);
           }}
           onClose={() => setIsImportOpen(false)}
+        />
+      )}
+      
+      {isExportConfigOpen && (
+        <ExportConfigModal 
+          onClose={() => setIsExportConfigOpen(false)}
+          onExport={(options) => exportToPDF(filteredTrades, options)}
         />
       )}
     </div>
