@@ -16,7 +16,7 @@ interface TradeFormProps {
   onCancel: () => void;
 }
 
-export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News', 'RSI MACD Signal v2'];
+export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News', 'RSI MACD Signal v2', 'CRT'];
 
 export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
