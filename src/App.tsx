@@ -236,6 +236,12 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tradesText })
       });
+      
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+         throw new Error("API endpoint not found. This feature requires a backend server and won't work on purely static hosting like standard Vercel deployments.");
+      }
+
       const data = await response.json();
       if (data.error) throw new Error(data.error);
       setAnalysisResult(data.result);
