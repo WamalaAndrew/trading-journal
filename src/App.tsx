@@ -20,7 +20,9 @@ import { getActualPips } from './utils/tradeCalculations';
 import { ExportConfigModal } from './components/ExportConfigModal';
 import { exportToCSV, exportToPDF } from './exportUtils';
 import { ImportWizard } from './components/ImportWizard';
-import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload, Sparkles, Loader2 } from 'lucide-react';
+import { FrvpStrategyModal } from './components/FrvpStrategyModal';
+import { FRVP_TEMPLATES } from './data/strategyTemplates';
+import { Plus, ListFilter, TrendingUp, Activity, Download, Moon, Sun, Search, Calendar, LogIn, LogOut, Upload, Sparkles, Loader2, Layers } from 'lucide-react';
 import { auth } from './firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Toaster, toast } from 'react-hot-toast';
@@ -31,6 +33,8 @@ export default function App() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isExportConfigOpen, setIsExportConfigOpen] = useState(false);
+  const [isStrategyModalOpen, setIsStrategyModalOpen] = useState(false);
+  const [templateToApply, setTemplateToApply] = useState<any>(null);
   const [editTrade, setEditTrade] = useState<any>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
@@ -252,6 +256,17 @@ export default function App() {
     }
   };
 
+  const handleSelectTemplate = (templateData: any) => {
+    setTemplateToApply(templateData);
+    setEditTrade(null);
+    if (!user) {
+      toast('Please sign in with Google to log trades to your personal journal.', { icon: '🔐' });
+      handleLogin();
+      return;
+    }
+    setIsFormOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 pb-20 transition-colors duration-200">
       <Toaster position="bottom-right" />
@@ -270,6 +285,16 @@ export default function App() {
           </div>
           <div className="flex items-center gap-2 md:gap-3">
             <button 
+              onClick={() => setIsStrategyModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 text-xs sm:text-sm font-semibold transition-all shadow-sm cursor-pointer"
+              title="FRVP POC Bounce v7.1 Strategy & Templates"
+            >
+              <Layers className="w-4 h-4 text-amber-500" />
+              <span className="hidden sm:inline">FRVP Strategy v7.1</span>
+              <span className="sm:hidden">FRVP v7.1</span>
+              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500 text-zinc-950 font-bold">New</span>
+            </button>
+            <button 
               onClick={toggleTheme}
               className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
               title="Toggle Theme"
@@ -287,6 +312,7 @@ export default function App() {
                 </button>
                 <button 
                   onClick={() => {
+                    setTemplateToApply(null);
                     setEditTrade(null);
                     setIsFormOpen(true);
                   }}
@@ -325,16 +351,74 @@ export default function App() {
              </div>
              <h2 className="text-xl font-medium text-zinc-900 dark:text-zinc-100 mb-2">Welcome to AlphaLog</h2>
              <p className="text-zinc-500 dark:text-zinc-400 mb-6 max-w-sm mx-auto">Sign in to start tracking your trading performance and journal entries securely.</p>
-             <button 
-                onClick={handleLogin}
-                className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
-              >
-                <LogIn className="w-4 h-4" />
-                Sign In with Google
-              </button>
+             <div className="flex flex-wrap items-center justify-center gap-3">
+               <button 
+                  onClick={handleLogin}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors shadow-lg shadow-indigo-500/20"
+                >
+                  <LogIn className="w-4 h-4" />
+                  Sign In with Google
+                </button>
+                <button 
+                  onClick={() => setIsStrategyModalOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 rounded-lg font-medium hover:bg-amber-500/20 transition-colors"
+                >
+                  <Layers className="w-4 h-4 text-amber-500" />
+                  Explore FRVP v7.1 Strategy &amp; Templates
+                </button>
+             </div>
            </div>
         ) : (
           <>
+            {/* Strategy Spotlight Banner */}
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-zinc-900/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 mb-8 shadow-sm">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-500 shrink-0">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm sm:text-base font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                        FRVP POC Bounce + Sweep&amp;Reclaim / CHoCH-BOS (v7.1)
+                      </h3>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                        Pine Script v6
+                      </span>
+                    </div>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-0.5">
+                      Multi-session volume profile levels • Fast sweep &amp; reclaim candle closes • Williams 5-bar fractals • v7 Inverse Retests
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <button
+                    onClick={() => setIsStrategyModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-zinc-950 font-semibold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Explore 5 Templates &amp; Script</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-amber-500/20 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-medium text-zinc-500 dark:text-zinc-400 mr-1">Quick-load templates:</span>
+                {FRVP_TEMPLATES.map(tpl => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => handleSelectTemplate(tpl.data)}
+                    className="text-[11px] px-2.5 py-1 rounded-md bg-white/80 dark:bg-zinc-900/80 hover:bg-amber-50 dark:hover:bg-amber-500/10 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="font-mono font-bold text-zinc-900 dark:text-zinc-100">{tpl.data.pair}</span>
+                    <span className="text-zinc-400">·</span>
+                    <span>{tpl.badge}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8">
            <div className="col-span-2 lg:col-span-6 mb-1 mt-2">
@@ -639,15 +723,22 @@ export default function App() {
 
       {isFormOpen && user && (
         <TradeForm
-          initialData={editTrade}
+          initialData={editTrade || templateToApply}
           onSubmit={async (tradeData) => {
             if (editTrade) {
               await updateTrade(editTrade.id, tradeData);
             } else {
               await addTrade(tradeData);
             }
+            setTemplateToApply(null);
+            setEditTrade(null);
           }} 
-          onCancel={() => setIsFormOpen(false)} 
+          onCancel={() => {
+            setIsFormOpen(false);
+            setTemplateToApply(null);
+            setEditTrade(null);
+          }} 
+          onOpenStrategyModal={() => setIsStrategyModalOpen(true)}
         />
       )}
 
@@ -669,6 +760,12 @@ export default function App() {
           onExport={(options) => exportToPDF(filteredTrades, options)}
         />
       )}
+
+      <FrvpStrategyModal 
+        isOpen={isStrategyModalOpen}
+        onClose={() => setIsStrategyModalOpen(false)}
+        onSelectTemplate={handleSelectTemplate}
+      />
     </div>
   );
 }

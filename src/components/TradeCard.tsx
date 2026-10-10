@@ -42,11 +42,21 @@ export const TradeCard: React.FC<TradeCardProps> = ({ trade, onEdit, onDelete })
           </p>
           {trade.strategyTags && trade.strategyTags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {trade.strategyTags.map(tag => (
-                <span key={tag} className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-100 text-zinc-600 border border-zinc-200 dark:bg-zinc-800/80 dark:text-zinc-400 dark:border-zinc-700/50">
-                  {tag}
-                </span>
-              ))}
+              {trade.strategyTags.map(tag => {
+                const isFrvp = tag.startsWith('FRVP');
+                return (
+                  <span 
+                    key={tag} 
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                      isFrvp 
+                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30 font-semibold' 
+                        : 'bg-zinc-100 text-zinc-600 border-zinc-200 dark:bg-zinc-800/80 dark:text-zinc-400 dark:border-zinc-700/50'
+                    }`}
+                  >
+                    {tag}
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

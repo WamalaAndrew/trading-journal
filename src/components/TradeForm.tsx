@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Trade, MACDDirection, CrossoverType, ExitReason, ResultStatus } from '../types';
 import { calculateTradeFields } from '../utils/tradeCalculations';
-import { X, Plus, Save, Loader2, Bookmark, Check } from 'lucide-react';
+import { FRVP_TEMPLATES, FRVP_DEFAULT_ANALYSIS_TEMPLATES, StrategyTemplateItem } from '../data/strategyTemplates';
+import { X, Plus, Save, Loader2, Bookmark, Check, Sparkles, ChevronDown } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 interface AnalysisTemplate {
@@ -14,11 +15,25 @@ interface TradeFormProps {
   initialData?: Trade;
   onSubmit: (trade: Omit<Trade, 'id'>) => Promise<void> | void;
   onCancel: () => void;
+  onOpenStrategyModal?: () => void;
 }
 
-export const STRATEGY_OPTIONS = ['Trend Following', 'Mean Reversion', 'Breakout', 'Scalping', 'Swing', 'News', 'RSI MACD Signal v2', 'CRT'];
+export const STRATEGY_OPTIONS = [
+  'FRVP POC Bounce',
+  'FRVP Sweep & Reclaim',
+  'FRVP CHoCH + BOS',
+  'FRVP Inverse Flip (INV)',
+  'Trend Following',
+  'Mean Reversion',
+  'Breakout',
+  'Scalping',
+  'Swing',
+  'News',
+  'RSI MACD Signal v2',
+  'CRT'
+];
 
-export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
+export function TradeForm({ initialData, onSubmit, onCancel, onOpenStrategyModal }: TradeFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState<Partial<Trade>>(() => {
     if (initialData) return { ...initialData };
@@ -40,14 +55,28 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
   const [analysisTemplates, setAnalysisTemplates] = useState<AnalysisTemplate[]>([]);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
+  const [showTemplatesDropdown, setShowTemplatesDropdown] = useState(false);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({ ...initialData });
+    }
+  }, [initialData]);
 
   useEffect(() => {
     const savedTemplates = localStorage.getItem('analysisTemplates');
     if (savedTemplates) {
       try {
-        setAnalysisTemplates(JSON.parse(savedTemplates));
+        const parsed = JSON.parse(savedTemplates);
+        if (parsed.length > 0) {
+          setAnalysisTemplates(parsed);
+          return;
+        }
       } catch (e) {}
     }
+    // Seed with FRVP reflection templates by default
+    setAnalysisTemplates(FRVP_DEFAULT_ANALYSIS_TEMPLATES);
+    localStorage.setItem('analysisTemplates', JSON.stringify(FRVP_DEFAULT_ANALYSIS_TEMPLATES));
   }, []);
 
   useEffect(() => {
@@ -55,6 +84,15 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
       localStorage.setItem('tradeFormDraft', JSON.stringify(formData));
     }
   }, [formData, initialData]);
+
+  const handleApplyStrategyTemplate = (tpl: StrategyTemplateItem) => {
+    setFormData({
+      ...tpl.data,
+      dateTime: new Date().toISOString().slice(0, 16)
+    });
+    setShowTemplatesDropdown(false);
+    toast.success(`Loaded "${tpl.title}" template!`);
+  };
 
   const handleSaveTemplate = () => {
     if (!newTemplateName.trim()) return;
@@ -159,6 +197,45 @@ export function TradeForm({ initialData, onSubmit, onCancel }: TradeFormProps) {
 
         <div className="overflow-y-auto p-6 scrollbar-thin">
           <form id="trade-form" onSubmit={handleSubmit} className="space-y-8">
+            {/* Quick Strategy Templates Loader */}
+            <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/25 rounded-xl p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-900 dark:text-zinc-100">
+                    FRVP Strategy Setup Templates
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                    Relatable Setups
+                  </span>
+                </div>
+                {onOpenStrategyModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenStrategyModal}
+                    className="text-xs text-amber-600 dark:text-amber-400 hover:underline font-medium text-left"
+                  >
+                    Interactive Strategy Hub &amp; Visualizer &rarr;
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {FRVP_TEMPLATES.map(tpl => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => handleApplyStrategyTemplate(tpl)}
+                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 text-zinc-700 dark:text-zinc-300 transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  >
+                    <span className="font-mono font-bold text-[11px] text-zinc-900 dark:text-zinc-100">{tpl.data.pair}</span>
+                    <span className="text-zinc-400">·</span>
+                    <span>{tpl.badge}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Entry Details */}
             <div>
               <h3 className="text-sm font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 uppercase mb-4">Core Details</h3>
